@@ -31,3 +31,13 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
    ```bash
    Enter the path to the input Excel file (.xlsx): path/to/input/file.xlsx
    Enter the path for the output Excel file (.xlsx): path/to/output/file.xlsx
+
+## How it Works
+1. **Delete Duplicates**
+   The program utilizes Excel to remove duplicate rows from the dataset.
+2. **Filter by "Funder Project Reference"**
+   Rows with blank "Funder Project Reference" fields are removed using pandas.
+3. **Filter by DOIs and Additional Source IDs**
+   The program filters rows based on the presence of DOIs (Digital Object Identifiers) or "PubMed:" in Additional Source IDs.
+4. **Clear Additional Source IDs if DOIs are Present**
+   If a DOI is found in a row, the program clears the corresponding "Additional Source IDs".

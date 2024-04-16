@@ -3,4 +3,5 @@ A simple python program that manipulates the data pulled from Elsevier Pure to m
 
 # Progress
 1. Deletes Duplicates
-2. Removes all rows with blank Funder Project Reference 
+2. Removes all rows with blank Funder Project Reference
+3. Keeps only rows where there is a DOI OR Additional Source ID starts with PubMed:

@@ -15,6 +15,7 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
    - Keeps rows with a DOI OR where Additional Source IDs start with "PubMed:".
    - Removes the "PubMed:" prefix from Additional Source IDs.
 4. **Clear Additional Source IDs if DOIs are Present**: Clears the "Additional Source IDs" field if a DOI is present.
+5. **Filter by "Funder Project Reference"**: Removes rows with just dates or via institution in "Funder Project Reference"
 
 ## Usage
 1. Clone the repository:

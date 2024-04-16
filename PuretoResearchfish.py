@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 from win32com import client as wc
+import numpy as np
 
 def remove_duplicates_and_empty_rows(input_file, output_file):
     # Copy the input file to a temporary file
@@ -20,42 +21,41 @@ def remove_duplicates_and_empty_rows(input_file, output_file):
     # Remove duplicates from the entire used range
     ws.UsedRange.RemoveDuplicates(Columns=range(1, ws.UsedRange.Columns.Count + 1), Header=1)
 
-    # Find the index of the column with header "Funder Project Reference"
-    funder_proj_ref_header = "Funder Project Reference"
-    funder_proj_ref_col_index = None
-    for col in range(1, ws.UsedRange.Columns.Count + 1):
-        header_value = ws.Cells(1, col).Value
-        if header_value == funder_proj_ref_header:
-            funder_proj_ref_col_index = col
-            break
-
-    if funder_proj_ref_col_index is None:
-        print(f"Error: Column '{funder_proj_ref_header}' not found.")
-        wb.Close()
-        excel.Quit()
-        os.remove(temp_file)
-        return
-
-    # Loop through rows to check and delete rows with blank "Funder Project Reference"
-    rows_to_delete = []
-    for row in range(2, ws.UsedRange.Rows.Count + 1):  # Start from 2nd row assuming there's a header
-        cell_value = ws.Cells(row, funder_proj_ref_col_index).Value
-        if cell_value is None:
-            rows_to_delete.append(row)
-
-    # Delete the rows with blank "Funder Project Reference"
-    for row in reversed(rows_to_delete):  # Deleting in reverse order to avoid shifting indexes
-        ws.Rows(row).Delete()
-
     # Save the workbook
-    wb.SaveAs(os.path.abspath(output_file), FileFormat=51)
+    wb.Save()
 
     # Close the workbook and quit Excel
     wb.Close()
     excel.Quit()
 
+    # Read the Excel file into a DataFrame
+    df = pd.read_excel(temp_file)
+
+    # Define a function to handle 'N/A' or 'n/a' as null values
+    def na_handler(x):
+        if isinstance(x, str) and x.lower() in ['n/a', 'na']:
+            return np.nan
+        return x
+
+    # Apply the 'na_handler' function to the DataFrame
+    df = df.apply(lambda x: x.map(na_handler) if x.name == "Funder Project Reference" else x)
+
+    # Find the column with header "Funder Project Reference"
+    funder_proj_ref_header = "Funder Project Reference"
+    if funder_proj_ref_header not in df.columns:
+        print(f"Error: Column '{funder_proj_ref_header}' not found.")
+        return
+
+    # Remove rows with blank "Funder Project Reference" (including 'N/A' or 'n/a')
+    df = df.dropna(subset=[funder_proj_ref_header], how='any')
+
+    # Save the DataFrame to a new Excel file
+    df.to_excel(output_file, index=False)
+
     # Delete the temporary file
     os.remove(temp_file)
+
+    print("Duplicate rows and rows with blank 'Funder Project Reference' (including 'N/A' or 'n/a') removed. Output saved to:", output_file)
 
 if __name__ == "__main__":
     # Prompt user for input file path
@@ -64,6 +64,5 @@ if __name__ == "__main__":
     # Prompt user for output file path
     output_file = input("Enter the path for the output Excel file (.xlsx): ")
 
-    # Call the function to remove duplicates and empty rows using Excel
+    # Call the function to remove duplicates using Excel and handle "Funder Project Reference" with pandas
     remove_duplicates_and_empty_rows(input_file, output_file)
-    print("Duplicate rows and rows with blank 'Funder Project Reference' removed using Excel. Output saved to:", output_file)

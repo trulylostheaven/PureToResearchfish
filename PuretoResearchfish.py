@@ -2,6 +2,7 @@ import pandas as pd
 import os
 from win32com import client as wc
 import numpy as np
+import re
 
 def remove_duplicates_with_excel(input_file, temp_file):
     # Copy the input file to a temporary file
@@ -96,7 +97,48 @@ def clear_additional_ids_if_doi_present(input_file, output_file):
     df.to_excel(output_file, index=False)
     print("Cleared 'Additional source IDs' where 'DOIs (Digital Object Identifiers)' are present. Output saved to:", output_file)
 
+def remove_rows_with_dates_in_funder_reference(input_file, output_file):
+    # Read the Excel file into a DataFrame
+    df = pd.read_excel(input_file)
 
+    # Define a function to check if a value is a date in the format "##/##/##"
+    def is_date_format(value):
+        if isinstance(value, str):
+            parts = value.split('/')
+            if len(parts) == 3:
+                try:
+                    day = int(parts[0])
+                    month = int(parts[1])
+                    year = int(parts[2])
+                    if 1 <= day <= 31 and 1 <= month <= 12:
+                        return True
+                except ValueError:
+                    pass
+        return False
+
+    # Define a function to check if a value contains "Via [Institution Name]" with no numbers
+    def contains_via_institution(value):
+        if isinstance(value, str):
+            # Case-insensitive regex pattern to match "Via [Institution Name]" without numbers
+            pattern = r"via [a-zA-Z\s]+"
+            return bool(re.match(pattern, value, re.IGNORECASE))
+        return False
+
+    # Apply the functions to create boolean masks for dates and "Via [Institution Name]"
+    date_mask = df["Funder Project Reference"].astype(str).apply(is_date_format)
+    via_mask = df["Funder Project Reference"].astype(str).apply(contains_via_institution)
+
+    # Combine the masks using logical OR to identify rows to remove
+    rows_to_remove = date_mask | via_mask
+
+    # Keep rows where the value is not a date or does not contain "Via [Institution Name]"
+    df = df[~rows_to_remove]
+
+    # Write the updated DataFrame to a new Excel file
+    df.to_excel(output_file, index=False)
+
+    print("Rows with dates or 'Via [Institution Name]' in 'Funder Project Reference' column removed. Output saved to:", output_file)
+    
 if __name__ == "__main__":
     # Prompt user for input file path
     input_file = input("Enter the path to the input Excel file (.xlsx): ")
@@ -111,13 +153,16 @@ if __name__ == "__main__":
     remove_duplicates_with_excel(input_file, temp_file)
 
     # Call the function to handle "Funder Project Reference" header using pandas
-    handle_funder_project_reference(temp_file, output_file)
+    handle_funder_project_reference(temp_file, temp_file)
 
     # Call the function to filter rows based on "DOIs (Digital Object Identifiers)" and "Additional source IDs"
-    filter_by_dois_and_additional_ids(output_file, output_file)
+    filter_by_dois_and_additional_ids(temp_file, temp_file)
     
     # Call the new function to clear "Additional source IDs" where "DOIs" are present
-    clear_additional_ids_if_doi_present(output_file, output_file)
+    clear_additional_ids_if_doi_present(temp_file, temp_file)
+    
+    # Call the function to remove rows with dates in "Funder Project Reference" column
+    remove_rows_with_dates_in_funder_reference(temp_file, output_file)
 
     # Delete the temporary file
     os.remove(temp_file)

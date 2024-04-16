@@ -21,3 +21,13 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
    ```bash
    git clone https://github.com/your-username/PureToResearchfish.git
    cd PureToResearchfish
+2. Install the required Python packages:
+   ```bash
+   pip install pandas numpy
+3. Run the program:
+   ```bash
+   python PureToResearchfish.py
+4. You will be prompted to input the paths to the input and output Excel files:
+   ```bash
+   Enter the path to the input Excel file (.xlsx): path/to/input/file.xlsx
+   Enter the path for the output Excel file (.xlsx): path/to/output/file.xlsx

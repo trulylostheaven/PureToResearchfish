@@ -58,19 +58,43 @@ def filter_by_dois_and_additional_ids(input_file, output_file):
     # Read the Excel file into a DataFrame
     df = pd.read_excel(input_file)
 
+    # Fill NaN values in "Additional source IDs" column with an empty string
+    df["Additional source IDs"] = df["Additional source IDs"].fillna("")
+
     # Create a mask for rows where "DOIs (Digital Object Identifiers)" is not NaN
     dois_not_null_mask = df["DOIs (Digital Object Identifiers)"].notnull()
 
-    # Create a mask for rows where "Additional source IDs" start with "PubMed:"
-    pubmed_mask = df["Additional source IDs"].str.startswith("PubMed:")
+    # Create a mask for rows where "Additional source IDs" contains "PubMed:"
+    pubmed_mask = df["Additional source IDs"].str.contains("PubMed:", na=False)
 
-    # Combine both conditions to keep rows where DOIs are not null or where Additional source IDs start with "PubMed:"
-    df_filtered = df[dois_not_null_mask | pubmed_mask]
+    # Combine both conditions to keep rows where DOIs are not null or where Additional source IDs contain "PubMed:"
+    df_filtered = df[dois_not_null_mask | pubmed_mask].copy()  # Make a copy to avoid the SettingWithCopyWarning
+
+    # Remove "PubMed:" prefix from "Additional source IDs" column
+    df_filtered.loc[pubmed_mask, "Additional source IDs"] = df_filtered.loc[pubmed_mask, "Additional source IDs"].str.replace(r'^\s*PubMed:\s*', '', regex=True)
 
     # Save the DataFrame to a new Excel file
     df_filtered.to_excel(output_file, index=False)
 
     print("Filtered rows based on 'DOIs (Digital Object Identifiers)' and 'Additional source IDs'. Output saved to:", output_file)
+
+def clear_additional_ids_if_doi_present(input_file, output_file):
+    # Read the Excel file
+    df = pd.read_excel(input_file)
+
+    # Check if "DOIs (Digital Object Identifiers)" column has data
+    dois_column = "DOIs (Digital Object Identifiers)"
+    additional_ids_column = "Additional source IDs"
+
+    # Mask for rows where DOIs are present
+    dois_present_mask = df[dois_column].notnull()
+
+    # Clear "Additional source IDs" where DOIs are present
+    df.loc[dois_present_mask, additional_ids_column] = np.nan
+
+    # Save the modified DataFrame to a new Excel file
+    df.to_excel(output_file, index=False)
+    print("Cleared 'Additional source IDs' where 'DOIs (Digital Object Identifiers)' are present. Output saved to:", output_file)
 
 
 if __name__ == "__main__":
@@ -91,6 +115,9 @@ if __name__ == "__main__":
 
     # Call the function to filter rows based on "DOIs (Digital Object Identifiers)" and "Additional source IDs"
     filter_by_dois_and_additional_ids(output_file, output_file)
+    
+    # Call the new function to clear "Additional source IDs" where "DOIs" are present
+    clear_additional_ids_if_doi_present(output_file, output_file)
 
     # Delete the temporary file
     os.remove(temp_file)

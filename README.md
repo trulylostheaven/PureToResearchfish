@@ -35,7 +35,7 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
 
 ## How it Works
 1. **Delete Duplicates**
-   The program utilizes Excel to remove duplicate rows from the dataset.
+   The program utilizes Excel to remove duplicate rows from the dataset. This is run twice, once in the beginning and at the end.
 2. **Filter by "Funder Project Reference"**
    Rows with blank "Funder Project Reference" fields are removed using pandas.
 3. **Filter by DOIs and Additional Source IDs**

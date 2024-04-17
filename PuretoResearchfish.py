@@ -4,10 +4,11 @@ from win32com import client as wc
 import numpy as np
 import re
 
-def remove_duplicates_with_excel(input_file, temp_file):
+def create_temporary_file(input_file, temp_file):
     # Copy the input file to a temporary file
     os.system(f"copy \"{input_file}\" \"{temp_file}\"")
 
+def remove_duplicates_from_excel(temp_file):
     # Create an Excel Application
     excel = wc.Dispatch("Excel.Application")
     excel.Visible = False
@@ -97,34 +98,33 @@ def clear_additional_ids_if_doi_present(input_file, output_file):
     df.to_excel(output_file, index=False)
     print("Cleared 'Additional source IDs' where 'DOIs (Digital Object Identifiers)' are present. Output saved to:", output_file)
 
-def remove_rows_with_dates_in_funder_reference(input_file, output_file):
+def remove_rows_with_dates_or_via(input_file, output_file):
     # Read the Excel file into a DataFrame
     df = pd.read_excel(input_file)
 
-    # Define a function to check if a value is a date in the format "##/##/##"
+    # Define a function to check if a value is in the format "##/##/##"
     def is_date_format(value):
-        if isinstance(value, str):
-            parts = value.split('/')
-            if len(parts) == 3:
-                try:
-                    day = int(parts[0])
-                    month = int(parts[1])
-                    year = int(parts[2])
-                    if 1 <= day <= 31 and 1 <= month <= 12:
-                        return True
-                except ValueError:
-                    pass
+        if not isinstance(value, str):
+            return False
+        parts = value.split('/')
+        if len(parts) != 3:
+            return False
+        try:
+            day, month, year = map(int, parts)
+            if 1 <= day <= 31 and 1 <= month <= 12:
+                return True
+        except ValueError:
+            pass
         return False
 
-    # Define a function to check if a value contains "Via [Institution Name]" with no numbers
+    # Define a function to check if a value contains "Via [Institution Name]" without numbers
     def contains_via_institution(value):
-        if isinstance(value, str):
-            # Case-insensitive regex pattern to match "Via [Institution Name]" without numbers
-            pattern = r"via [a-zA-Z\s]+"
-            return bool(re.match(pattern, value, re.IGNORECASE))
-        return False
+        if not isinstance(value, str):
+            return False
+        pattern = r"via [a-zA-Z\s]+"
+        return bool(re.match(pattern, value, re.IGNORECASE))
 
-    # Apply the functions to create boolean masks for dates and "Via [Institution Name]"
+    # Create boolean masks for dates and "Via [Institution Name]"
     date_mask = df["Funder Project Reference"].astype(str).apply(is_date_format)
     via_mask = df["Funder Project Reference"].astype(str).apply(contains_via_institution)
 
@@ -139,7 +139,7 @@ def remove_rows_with_dates_in_funder_reference(input_file, output_file):
 
     print("Rows with dates or 'Via [Institution Name]' in 'Funder Project Reference' column removed. Output saved to:", output_file)
     
-if __name__ == "__main__":
+def main():
     # Prompt user for input file path
     input_file = input("Enter the path to the input Excel file (.xlsx): ")
 
@@ -149,8 +149,11 @@ if __name__ == "__main__":
     # Create a temporary file path
     temp_file = "temp_file.xlsx"
 
+    # Create the temporary file
+    create_temporary_file(input_file, temp_file)
+
     # Call the function to remove duplicates using Excel
-    remove_duplicates_with_excel(input_file, temp_file)
+    remove_duplicates_from_excel(temp_file)
 
     # Call the function to handle "Funder Project Reference" header using pandas
     handle_funder_project_reference(temp_file, temp_file)
@@ -162,7 +165,13 @@ if __name__ == "__main__":
     clear_additional_ids_if_doi_present(temp_file, temp_file)
     
     # Call the function to remove rows with dates in "Funder Project Reference" column
-    remove_rows_with_dates_in_funder_reference(temp_file, output_file)
+    remove_rows_with_dates_or_via(temp_file, output_file)
+
+    # Remove duplicates from the final output file
+    remove_duplicates_from_excel(output_file)
 
     # Delete the temporary file
     os.remove(temp_file)
+
+if __name__ == "__main__":
+    main()

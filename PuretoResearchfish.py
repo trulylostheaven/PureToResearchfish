@@ -1,14 +1,15 @@
-import pandas as pd
 import os
-from win32com import client as wc
+import pandas as pd
 import numpy as np
+import win32com.client as wc
 import re
 
-def create_temporary_file(input_file, temp_file):
-    # Copy the input file to a temporary file
-    os.system(f"copy \"{input_file}\" \"{temp_file}\"")
-
-def remove_duplicates_from_excel(temp_file):
+def remove_duplicates_from_excel(input_file, temp_file):
+    # Check if temp_file already exists
+    if not os.path.exists(temp_file):
+        # Copy the input file to a temporary file
+        os.system(f"copy \"{input_file}\" \"{temp_file}\"")
+    
     # Create an Excel Application
     excel = wc.Dispatch("Excel.Application")
     excel.Visible = False
@@ -102,7 +103,7 @@ def remove_rows_with_dates_or_via(input_file, output_file):
     # Read the Excel file into a DataFrame
     df = pd.read_excel(input_file)
 
-    # Define a function to check if a value is in the format "##/##/##"
+    # Function to check if a value is in the format "##/##/##"
     def is_date_format(value):
         if not isinstance(value, str):
             return False
@@ -117,27 +118,63 @@ def remove_rows_with_dates_or_via(input_file, output_file):
             pass
         return False
 
-    # Define a function to check if a value contains "Via [Institution Name]" without numbers
+    # Function to check if a value contains "Via [Institution Name]" without numbers
     def contains_via_institution(value):
         if not isinstance(value, str):
             return False
         pattern = r"via [a-zA-Z\s]+"
         return bool(re.match(pattern, value, re.IGNORECASE))
 
-    # Create boolean masks for dates and "Via [Institution Name]"
+    # Function to check if a value contains a removal keyword
+    def contains_keyword(value):
+        if not isinstance(value, str):
+            return False
+        keywords = [
+            "COVID 19 Supplement",
+            "Researcher let 1",
+            "Diana Tay",
+            "Amendment #5",
+            "Amendment #6"
+        ]
+        return any(keyword in value for keyword in keywords)
+
+    # Create boolean masks for dates, "Via [Institution Name]", and keywords
     date_mask = df["Funder Project Reference"].astype(str).apply(is_date_format)
     via_mask = df["Funder Project Reference"].astype(str).apply(contains_via_institution)
+    keyword_mask = df["Funder Project Reference"].astype(str).apply(contains_keyword)
 
     # Combine the masks using logical OR to identify rows to remove
-    rows_to_remove = date_mask | via_mask
+    rows_to_remove = date_mask | via_mask | keyword_mask
 
-    # Keep rows where the value is not a date or does not contain "Via [Institution Name]"
+    # Keep rows where the value is not a date, does not contain "Via [Institution Name]", 
+    # or a hard-coded removal keyword
     df = df[~rows_to_remove]
 
     # Write the updated DataFrame to a new Excel file
     df.to_excel(output_file, index=False)
 
-    print("Rows with dates or 'Via [Institution Name]' in 'Funder Project Reference' column removed. Output saved to:", output_file)
+    print("Rows with dates, 'Via [Institution Name]', 'COVID 19 Supplement', 'Amendment #5', or 'Amendment #6' in 'Funder Project Reference' column removed. Output saved to:", output_file)
+
+def remove_via_notes_from_funder_reference(input_file, output_file):
+    # Read the Excel file
+    df = pd.read_excel(input_file)
+
+    # Define a function to remove via notes
+    def remove_via_notes(cell_value):
+        if isinstance(cell_value, str):
+            # Updated regular expression to remove "(via [institution name])" or "via [institution name]"
+            cell_value = re.sub(r'\s*\([^()]*via\s+[^\s()]+\s*[^()]*\)|\s*via\s+[^\s()]+\s*', '', cell_value, flags=re.IGNORECASE)
+            # Remove any remaining parentheses
+            cell_value = re.sub(r'\([^()]*\)', '', cell_value)
+        return cell_value
+
+    # Apply the function to the "Funder Project Reference" column
+    df['Funder Project Reference'] = df['Funder Project Reference'].apply(remove_via_notes)
+
+    # Save the modified DataFrame to a new Excel file
+    df.to_excel(output_file, index=False)
+
+    print("Via notes removed from 'Funder Project Reference' column. Output saved to:", output_file)
     
 def main():
     # Prompt user for input file path
@@ -149,11 +186,8 @@ def main():
     # Create a temporary file path
     temp_file = "temp_file.xlsx"
 
-    # Create the temporary file
-    create_temporary_file(input_file, temp_file)
-
     # Call the function to remove duplicates using Excel
-    remove_duplicates_from_excel(temp_file)
+    remove_duplicates_from_excel(input_file, temp_file)
 
     # Call the function to handle "Funder Project Reference" header using pandas
     handle_funder_project_reference(temp_file, temp_file)
@@ -165,10 +199,13 @@ def main():
     clear_additional_ids_if_doi_present(temp_file, temp_file)
     
     # Call the function to remove rows with dates in "Funder Project Reference" column
-    remove_rows_with_dates_or_via(temp_file, output_file)
+    remove_rows_with_dates_or_via(temp_file, temp_file)
+
+    # Call the new function to remove via notes from "Funder Project Reference" column
+    remove_via_notes_from_funder_reference(temp_file, temp_file)
 
     # Remove duplicates from the final output file
-    remove_duplicates_from_excel(output_file)
+    remove_duplicates_from_excel(temp_file, output_file)
 
     # Delete the temporary file
     os.remove(temp_file)

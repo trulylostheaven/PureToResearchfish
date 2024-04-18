@@ -33,6 +33,9 @@ def handle_funder_project_reference(input_file, output_file):
     # Read the Excel file into a DataFrame
     df = pd.read_excel(input_file)
 
+    # Create a copy of the DataFrame to work on
+    cleaned_df = df.copy()
+
     # Define a function to handle 'N/A' as null values
     def na_handler(x):
         if isinstance(x, str) and x.lower() in ['n/a', 'na']:
@@ -40,19 +43,19 @@ def handle_funder_project_reference(input_file, output_file):
         return x
 
     # Apply the 'na_handler' function to the DataFrame
-    df = df.apply(lambda x: x.map(na_handler) if x.name == "Funder Project Reference" else x)
+    cleaned_df = cleaned_df.apply(lambda x: x.map(na_handler) if x.name == "Funder Project Reference" else x)
 
     # Find the column with header "Funder Project Reference"
     funder_proj_ref_header = "Funder Project Reference"
-    if funder_proj_ref_header not in df.columns:
+    if funder_proj_ref_header not in cleaned_df.columns:
         print(f"Error: Column '{funder_proj_ref_header}' not found.")
         return
 
     # Remove rows with blank "Funder Project Reference" (including 'N/A' or 'n/a')
-    df = df.dropna(subset=[funder_proj_ref_header], how='any')
+    cleaned_df = cleaned_df.dropna(subset=[funder_proj_ref_header], how='any')
 
-    # Save the DataFrame to a new Excel file
-    df.to_excel(output_file, index=False)
+    # Save the cleaned DataFrame to a new Excel file
+    cleaned_df.to_excel(output_file, index=False)
 
     print("Duplicate rows and rows with blank 'Funder Project Reference' (including 'N/A' or 'n/a') removed. Output saved to:", output_file)
 
@@ -174,6 +177,44 @@ def remove_via_notes_from_funder_reference(input_file, output_file):
     df.to_excel(output_file, index=False)
 
     print("Via notes removed from 'Funder Project Reference' column. Output saved to:", output_file)
+
+def split_rows_by_funder_project_reference(input_file, output_file):
+    # Read the Excel file
+    df = pd.read_excel(input_file)
+
+    # Define the reference to split by
+    reference_to_split = "095062/Z/10/Z 095062/Z/10/A"
+
+    # Filter rows containing the reference to split by
+    pattern = re.compile(reference_to_split.replace(' ', r'\s+'))  # Create regex pattern with optional whitespace
+    rows_to_split = df[df['Funder Project Reference'].str.contains(pattern, na=False)]
+
+    if not rows_to_split.empty:
+        # Create two new DataFrames based on the split reference
+        split_references = reference_to_split.split()
+        reference1 = split_references[0]
+        reference2 = split_references[1]
+
+        # Create two copies of rows to split
+        copied_rows_1 = rows_to_split.copy()
+        copied_rows_2 = rows_to_split.copy()
+
+        # Modify Funder Project Reference column in copied rows
+        copied_rows_1['Funder Project Reference'] = reference1
+        copied_rows_2['Funder Project Reference'] = reference2
+
+        # Concatenate original rows with the modified copied rows
+        df = pd.concat([df, copied_rows_1, copied_rows_2], ignore_index=True)
+
+        # Drop the original rows containing the reference to split by
+        df = df[~df['Funder Project Reference'].str.contains(pattern, na=False)]
+
+        # Save the modified DataFrame to a new Excel file
+        df.to_excel(output_file, index=False)
+
+        print("Split rows by Funder Project Reference and saved to:", output_file)
+    else:
+        print("No rows found with the specified reference to split by.")
     
 def main():
     # Create a temporary file path
@@ -201,16 +242,19 @@ def main():
     # Call the function to handle "Funder Project Reference" header using pandas
     handle_funder_project_reference(temp_file, temp_file)
 
+    # Call the function to split rows based on data from "Funder Project Reference" column
+    split_rows_by_funder_project_reference(temp_file, temp_file)
+
     # Call the function to filter rows based on "DOIs (Digital Object Identifiers)" and "Additional source IDs"
     filter_by_dois_and_additional_ids(temp_file, temp_file)
     
-    # Call the new function to clear "Additional source IDs" where "DOIs" are present
+    # Call the function to clear "Additional source IDs" where "DOIs" are present
     clear_additional_ids_if_doi_present(temp_file, temp_file)
     
     # Call the function to remove rows with dates in "Funder Project Reference" column
     remove_rows_with_dates_or_via(temp_file, temp_file)
 
-    # Call the new function to remove via notes from "Funder Project Reference" column
+    # Call the function to remove via notes from "Funder Project Reference" column
     remove_via_notes_from_funder_reference(temp_file, temp_file)
 
     # Remove duplicates from the final output file

@@ -3,12 +3,11 @@ import pandas as pd
 import numpy as np
 import win32com.client as wc
 import re
+from tkinter import Tk, filedialog
 
 def remove_duplicates_from_excel(input_file, temp_file):
-    # Check if temp_file already exists
-    if not os.path.exists(temp_file):
-        # Copy the input file to a temporary file
-        os.system(f"copy \"{input_file}\" \"{temp_file}\"")
+    # Copy the input file to a temporary file
+    os.system(f"copy \"{input_file}\" \"{temp_file}\"")
     
     # Create an Excel Application
     excel = wc.Dispatch("Excel.Application")
@@ -177,14 +176,24 @@ def remove_via_notes_from_funder_reference(input_file, output_file):
     print("Via notes removed from 'Funder Project Reference' column. Output saved to:", output_file)
     
 def main():
-    # Prompt user for input file path
-    input_file = input("Enter the path to the input Excel file (.xlsx): ")
-
-    # Prompt user for output file path
-    output_file = input("Enter the path for the output Excel file (.xlsx): ")
-
     # Create a temporary file path
     temp_file = "temp_file.xlsx"
+
+    # Use tkinter to prompt user to choose input file
+    root = Tk()
+    root.withdraw()  # Hide the main window
+
+    input_file = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select Input File", filetypes=[("Excel files", "*.xlsx")])
+
+    if not input_file:
+        print("No input file selected. Exiting...")
+        return
+
+    # Set the output file name
+    output_file = os.path.splitext(input_file)[0] + "-output.xlsx"
+
+    print("Input file:", input_file)
+    print("Output file:", output_file)
 
     # Call the function to remove duplicates using Excel
     remove_duplicates_from_excel(input_file, temp_file)

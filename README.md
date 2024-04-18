@@ -10,12 +10,14 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
 
 ## Features
 1. **Delete Duplicates**: Removes duplicate rows from the dataset.
-2. **Filter by "Funder Project Reference"**: Removes rows with blank "Funder Project Reference" fields.
-3. **Filter by DOIs and Additional Source IDs**:
+2. **Filter by "Funder Project Reference"**:
+   - Removes rows with blank "Funder Project Reference" fields.
+   - Splits "specific" rows with more than one "Funder Project Reference" id.
+4. **Filter by DOIs and Additional Source IDs**:
    - Keeps rows with a DOI OR where Additional Source IDs start with "PubMed:".
    - Removes the "PubMed:" prefix from Additional Source IDs.
-4. **Clear Additional Source IDs if DOIs are Present**: Clears the "Additional Source IDs" field if a DOI is present.
-5. **Filter by "Funder Project Reference"**: Removes rows with just dates or via institution in "Funder Project Reference"
+5. **Clear Additional Source IDs if DOIs are Present**: Clears the "Additional Source IDs" field if a DOI is present.
+6. **Filter by "Funder Project Reference"**: Removes rows with just dates or via institution in "Funder Project Reference"
 
 ## Usage
 1. Clone the repository:

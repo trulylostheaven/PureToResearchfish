@@ -164,12 +164,14 @@ def remove_via_notes_from_funder_reference(input_file, output_file):
     # Define a function to remove via notes
     def remove_via_notes(cell_value):
         if isinstance(cell_value, str):
-            # Updated regular expression to remove "(via [institution name])" or "via [institution name]"
-            cell_value = re.sub(r'\s*\([^()]*via\s+[^\s()]+\s*[^()]*\)|\s*via\s+[^\s()]+\s*', '', cell_value, flags=re.IGNORECASE)
+            # Updated regular expression to remove " via [institution name]" and " (via [institution name])"
+            cell_value = re.sub(r'\s*(?:\(via\s+\w+(\s+\w+)*\)|via\s+\w+(\s+\w+)*)\s*', '', cell_value, flags=re.IGNORECASE)
             # Remove any remaining parentheses
             cell_value = re.sub(r'\([^()]*\)', '', cell_value)
+            # Remove any trailing whitespace
+            cell_value = cell_value.strip()
         return cell_value
-
+    
     # Apply the function to the "Funder Project Reference" column
     df['Funder Project Reference'] = df['Funder Project Reference'].apply(remove_via_notes)
 
@@ -230,8 +232,15 @@ def main():
         print("No input file selected. Exiting...")
         return
 
-    # Set the output file name
-    output_file = os.path.splitext(input_file)[0] + "-output.xlsx"
+    # Determine the output file name
+    base_output_file = os.path.splitext(input_file)[0] + "-output"
+    output_file = base_output_file + ".xlsx"
+    output_counter = 1
+
+    # Check if the output file already exists, if yes, iterate the counter
+    while os.path.exists(output_file):
+        output_counter += 1
+        output_file = f"{base_output_file}{output_counter}.xlsx"
 
     print("Input file:", input_file)
     print("Output file:", output_file)

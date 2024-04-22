@@ -5,33 +5,37 @@ import win32com.client as wc
 import re
 from tkinter import Tk, filedialog
 
+class ExcelFileHandler:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.excel = wc.Dispatch("Excel.Application")
+        self.excel.Visible = False
+        self.wb = None
+
+    def __enter__(self):
+        self.wb = self.excel.Workbooks.Open(os.path.abspath(self.file_path))
+        return self.wb.ActiveSheet
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.wb:
+            self.wb.Save()
+            self.wb.Close()
+        self.excel.Quit()
+
 def remove_duplicates_from_excel(input_file, temp_file):
     # Copy the input file to a temporary file
     os.system(f"copy \"{input_file}\" \"{temp_file}\"")
-    
+
     # Create an Excel Application
-    excel = wc.Dispatch("Excel.Application")
-    excel.Visible = False
-
-    # Open the temporary file
-    wb = excel.Workbooks.Open(os.path.abspath(temp_file))
-
-    # Select the active sheet
-    ws = wb.ActiveSheet
-
-    # Remove duplicates from the entire used range
-    ws.UsedRange.RemoveDuplicates(Columns=range(1, ws.UsedRange.Columns.Count + 1), Header=1)
-
-    # Save the workbook
-    wb.Save()
-
-    # Close the workbook and quit Excel
-    wb.Close()
-    excel.Quit()
+    with ExcelFileHandler(temp_file) as ws:
+        # Remove duplicates from the entire used range
+        ws.UsedRange.RemoveDuplicates(Columns=range(1, ws.UsedRange.Columns.Count + 1), Header=1)
+        ws.Parent.Save()
 
 def handle_funder_project_reference(input_file, output_file):
     # Read the Excel file into a DataFrame
-    df = pd.read_excel(input_file)
+    with pd.ExcelFile(input_file) as xls:
+        df = pd.read_excel(xls)
 
     # Create a copy of the DataFrame to work on
     cleaned_df = df.copy()
@@ -61,7 +65,8 @@ def handle_funder_project_reference(input_file, output_file):
 
 def filter_by_dois_and_additional_ids(input_file, output_file):
     # Read the Excel file into a DataFrame
-    df = pd.read_excel(input_file)
+    with pd.ExcelFile(input_file) as xls:
+        df = pd.read_excel(xls)
 
     # Fill NaN values in "Additional source IDs" column with an empty string
     df["Additional source IDs"] = df["Additional source IDs"].fillna("")
@@ -84,8 +89,9 @@ def filter_by_dois_and_additional_ids(input_file, output_file):
     print("Filtered rows based on 'DOIs (Digital Object Identifiers)' and 'Additional source IDs'. Output saved to:", output_file)
 
 def clear_additional_ids_if_doi_present(input_file, output_file):
-    # Read the Excel file
-    df = pd.read_excel(input_file)
+    # Read the Excel file into a DataFrame
+    with pd.ExcelFile(input_file) as xls:
+        df = pd.read_excel(xls)
 
     # Check if "DOIs (Digital Object Identifiers)" column has data
     dois_column = "DOIs (Digital Object Identifiers)"
@@ -103,7 +109,8 @@ def clear_additional_ids_if_doi_present(input_file, output_file):
 
 def remove_rows_with_dates_or_via(input_file, output_file):
     # Read the Excel file into a DataFrame
-    df = pd.read_excel(input_file)
+    with pd.ExcelFile(input_file) as xls:
+        df = pd.read_excel(xls)
 
     # Function to check if a value is in the format "##/##/##"
     def is_date_format(value):
@@ -136,7 +143,9 @@ def remove_rows_with_dates_or_via(input_file, output_file):
             "Researcher let 1",
             "Diana Tay",
             "Amendment #5",
-            "Amendment #6"
+            "Amendment #6",
+            "SOHIPP-Prison Survey",
+            "SOHIPP"
         ]
         return any(keyword in value for keyword in keywords)
 
@@ -158,8 +167,9 @@ def remove_rows_with_dates_or_via(input_file, output_file):
     print("Rows with dates, 'Via [Institution Name]', 'COVID 19 Supplement', 'Amendment #5', or 'Amendment #6' in 'Funder Project Reference' column removed. Output saved to:", output_file)
 
 def remove_via_notes_from_funder_reference(input_file, output_file):
-    # Read the Excel file
-    df = pd.read_excel(input_file)
+    # Read the Excel file into a DataFrame
+    with pd.ExcelFile(input_file) as xls:
+        df = pd.read_excel(xls)
 
     # Define a function to remove via notes
     def remove_via_notes(cell_value):
@@ -181,8 +191,9 @@ def remove_via_notes_from_funder_reference(input_file, output_file):
     print("Via notes removed from 'Funder Project Reference' column. Output saved to:", output_file)
 
 def split_rows_by_funder_project_reference(input_file, output_file):
-    # Read the Excel file
-    df = pd.read_excel(input_file)
+    # Read the Excel file into a DataFrame
+    with pd.ExcelFile(input_file) as xls:
+        df = pd.read_excel(xls)
 
     # Define the reference to split by
     reference_to_split = "095062/Z/10/Z 095062/Z/10/A"

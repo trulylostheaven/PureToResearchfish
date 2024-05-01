@@ -29,7 +29,7 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
 ## Usage
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/PureToResearchfish.git
+   git clone https://github.com/trulylostheaven/PureToResearchfish.git
    cd PureToResearchfish
 2. Install the required Python packages:
    ```bash

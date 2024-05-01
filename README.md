@@ -8,8 +8,10 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
 - Excel
 - pandas
 - numpy
+- fuzzywuzzy
 
 ## Features
+**PuretoResearchfish.py**
 1. **Delete Duplicates**: Removes duplicate rows from the dataset.
 2. **Filter by "Funder Project Reference"**:
    - Removes rows with blank "Funder Project Reference" fields.
@@ -20,6 +22,10 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
 5. **Clear Additional Source IDs if DOIs are Present**: Clears the "Additional Source IDs" field if a DOI is present.
 6. **Filter by "Funder Project Reference"**: Removes rows with just dates or via institution in "Funder Project Reference"
 
+**PureAddFunder**
+1. **Match Name to Funder Organisation**: Adds Funder Organisation while matching to Name.
+2. **Add Funder ID**: Adds the Funder ID matching to Funder Organisation.
+
 ## Usage
 1. Clone the repository:
    ```bash
@@ -28,13 +34,11 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
 2. Install the required Python packages:
    ```bash
    pip install pandas numpy
+   pip install fuzzywuzzy
 3. Run the program:
    ```bash
-   python PureToResearchfish.py
-4. You will be prompted to input the paths to the input and output Excel files:
-   ```bash
-   Enter the path to the input Excel file (.xlsx): path/to/input/file.xlsx
-   Enter the path for the output Excel file (.xlsx): path/to/output/file.xlsx
+   python run_program.py
+4.Select input_file.xlsx, select comparison_xlsx, and select comparison_sheet
 
 ## How it Works
 1. **Delete Duplicates**

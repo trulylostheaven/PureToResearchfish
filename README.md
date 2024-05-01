@@ -38,7 +38,8 @@ PureToResearchfish is a Python program designed to streamline the manipulation o
 3. Run the program:
    ```bash
    python run_program.py
-4.Select input_file.xlsx, select comparison_xlsx, and select comparison_sheet
+4. Run program PuretoResearchfish.py (this will run both programs in order)
+5. Select input_file.xlsx, select comparison_xlsx, and select comparison_sheet
 
 ## How it Works
 1. **Delete Duplicates**

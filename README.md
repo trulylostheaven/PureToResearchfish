@@ -1,7 +1,7 @@
 # PureToResearchfish
 
-Please note that this code is currently under development. It is prone to errors and the code is still revising. This may not work for your institution so please review what the code does before using it.
-PureToResearchfish is a Python program designed to streamline the manipulation of data extracted from Elsevier Pure, making it easier to upload to Researchfish.
+Please note this may not work for your institution so please review what the code does before using it.
+PureToResearchfish is a Python program designed to streamline the manipulation of data extracted from Elsevier Pure, making it easier to upload to Researchfish. The final excel sheet may require some additional manipulation but this should save off several hours of work.
 
 ## Requirements
 - Python

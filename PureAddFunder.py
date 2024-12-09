@@ -1,169 +1,120 @@
 import os
 import pandas as pd
+from fuzzywuzzy import process
 import tkinter as tk
 from tkinter import Tk, filedialog, ttk
-from fuzzywuzzy import process
-import win32com.client as wc
+import logging
+from utils import get_unique_output_file
 
-class ExcelFileHandler:
-    def __init__(self, file_path):
-        self.file_path = file_path
-        self.excel = wc.Dispatch("Excel.Application")
-        self.excel.Visible = False
-        self.wb = None
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    def __enter__(self):
-        self.wb = self.excel.Workbooks.Open(os.path.abspath(self.file_path))
-        return self.wb.ActiveSheet
+def select_files():
+    root = Tk()
+    root.withdraw()
+    input_file = filedialog.askopenfilename(title="Select Input File", filetypes=[("Excel files", "*.xlsx")])
+    comparison_file = filedialog.askopenfilename(title="Select Comparison File", filetypes=[("Excel files", "*.xlsx")])
+    if not input_file or not comparison_file:
+        logging.error("File selection canceled. Exiting...")
+        raise SystemExit("File selection was not completed.")
+    return input_file, comparison_file
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.wb:
-            self.wb.Save()
-            self.wb.Close()
-        self.excel.Quit()
-
-def add_columns(input_file, output_file):    
-    # Read the Excel file into a DataFrame
-    with pd.ExcelFile(input_file) as xls:
-        df = pd.read_excel(xls)
-
-    # Add new columns
-    df['RF Funder ID'] = ''
-
-    # Save the DataFrame to Excel
-    df.to_excel(output_file, index=False)
-
-    return df
-
-def fuzzy_match_name(name, comparison_names, threshold=90):
-    # Perform fuzzy matching to find the closest match
-    matched_name, score = process.extractOne(name, comparison_names)
-    if score >= threshold:
-        return matched_name
-    else:
-        return None
-
-def select_comparison_sheet(comparison_file):
-    root = tk.Tk()
-    root.title("Select Sheet")
-
-    sheet_label = ttk.Label(root, text="Available sheet names in the comparison file:")
-    sheet_label.pack()
-
-    sheet_listbox = tk.Listbox(root, selectmode=tk.SINGLE)
-    sheet_listbox.pack()
-
-    def on_select():
-        selected_index = sheet_listbox.curselection()
-        if selected_index:
-            selected_sheet.set(sheet_listbox.get(selected_index))
-            root.quit()
-            root.destroy()
-
+def select_sheet(comparison_file):
     with pd.ExcelFile(comparison_file) as xls:
         sheet_names = xls.sheet_names
 
-    for name in sheet_names:
-        sheet_listbox.insert(tk.END, name)
-
-    select_button = ttk.Button(root, text="Select", command=on_select)
-    select_button.pack()
+    root = tk.Tk()
+    root.title("Select Sheet")
 
     selected_sheet = tk.StringVar()
+    
+    def on_select():
+        selected = sheet_listbox.curselection()
+        if selected:
+            selected_sheet.set(sheet_names[selected[0]])
+            root.quit()
+            root.destroy()
+
+    ttk.Label(root, text="Available Sheets:").pack()
+    sheet_listbox = tk.Listbox(root, selectmode=tk.SINGLE)
+    for name in sheet_names:
+        sheet_listbox.insert(tk.END, name)
+    sheet_listbox.pack()
+
+    ttk.Button(root, text="Select", command=on_select).pack()
     root.mainloop()
 
+    if not selected_sheet.get():
+        raise ValueError("No sheet selected. Please try again.")
     return selected_sheet.get()
 
-def compare_and_fill(df, comparison_file, output_file):
-    selected_sheet = select_comparison_sheet(comparison_file)
+
+def fuzzy_match_name(name, comparison_names, threshold=90):
+    result = process.extractOne(name, comparison_names)
+    if result is None:
+        return None
+    matched_name, score = result
+    return matched_name if score >= threshold else None
+
+def process_files(input_file, comparison_file):
+    # Select the sheet from the comparison file
+    logging.info("Prompting user to select a sheet from the comparison file...")
+    selected_sheet = select_sheet(comparison_file)
+
+    # Load input and selected comparison sheet
+    logging.info(f"Loading data from selected sheet: {selected_sheet}")
+    input_df = pd.read_excel(input_file)
     with pd.ExcelFile(comparison_file) as xls:
         comparison_df = pd.read_excel(xls, sheet_name=selected_sheet)
 
-    # Remove leading and trailing whitespace from column names
+    # Clean and validate comparison DataFrame
     comparison_df.columns = comparison_df.columns.str.strip()
+    if "Name" not in comparison_df.columns or "RF Funder ID" not in comparison_df.columns:
+        raise ValueError("The comparison file must contain 'Name' and 'RF Funder ID' columns.")
 
-    print("Columns in the comparison DataFrame after stripping whitespace:")
-    print(comparison_df.columns)
-
-    # Extract unique names from the comparison DataFrame
-    if "Name" not in comparison_df.columns:
-        raise ValueError("The 'Name' column does not exist in the comparison DataFrame.")
-
-    comparison_names = comparison_df["Name"].unique()
-
-    # Apply fuzzy matching to each row in the input DataFrame
-    df["Name"] = df["Funding organisation(s)"].apply(lambda x: fuzzy_match_name(x, comparison_names, threshold=90))
-
-    # Save the DataFrame to Excel
-    df.to_excel(output_file, index=False)
-
-    return df, selected_sheet
-
-def fill_rf_funder_id(df, comparison_df, selected_sheet, output_file):
-    # Rename the column in the comparison DataFrame to match the input DataFrame
-    comparison_df = comparison_df.rename(columns={" Name": "Name"})
-    
-    # Create a dictionary mapping names to RF Funder IDs from the comparison DataFrame
+    comparison_names = comparison_df["Name"].dropna().astype(str).unique().tolist()
     name_to_funder_id = dict(zip(comparison_df["Name"], comparison_df["RF Funder ID"]))
-    
-    # Fill in RF Funder ID based on the matched names
-    df["RF Funder ID"] = df["Name"].map(name_to_funder_id)
-    
-    # Save the DataFrame to Excel
+
+    # Add and fill new columns
+    logging.info("Performing fuzzy matching and filling data...")
+    input_df["Matched Name"] = input_df["Funding organisation(s)"].fillna("").astype(str).map(
+        lambda x: fuzzy_match_name(x, comparison_names, threshold=90)
+    )
+    input_df["RF Funder ID"] = input_df["Matched Name"].map(name_to_funder_id)
+
+    # Drop rows with unmatched names
+    input_df_cleaned = input_df.dropna(subset=["Matched Name"])
+
+    # Rename "Matched Name" to "Name"
+    input_df_cleaned = input_df_cleaned.rename(columns={"Matched Name": "Name"})
+
+    # Reorder columns to place "Name" as the last column
+    columns = [col for col in input_df_cleaned.columns if col != "Name"] + ["Name"]
+    input_df_cleaned = input_df_cleaned[columns]
+
+    return input_df_cleaned
+
+def save_output(df, input_file):
+    output_file = get_unique_output_file(input_file, suffix="_processed")
+    logging.info(f"Saving processed data to {output_file}...")
     df.to_excel(output_file, index=False)
-
-    return df
-
-def clean_up_data(df, output_file):
-    # Drop rows with missing values in the "Name" column
-    df_cleaned = df.dropna(subset=["Name"])
-    
-    # Save the cleaned DataFrame to Excel
-    df_cleaned.to_excel(output_file, index=False)
-
-    return df_cleaned
+    return output_file
 
 def main():
-    # Use tkinter to prompt user to choose input and comparison files
-    root = Tk()
-    root.withdraw()
+    try:
+        # File selection
+        input_file, comparison_file = select_files()
 
-    input_file = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select Input File", filetypes=[("Excel files", "*.xlsx")])
-    comparison_file = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select Comparison File", filetypes=[("Excel files", "*.xlsx")])
+        # Process files with sheet selection and data matching
+        processed_df = process_files(input_file, comparison_file)
 
-    if not input_file or not comparison_file:
-        print("One or both files not selected. Exiting...")
-        return
+        # Save the output with a unique file name
+        output_file = save_output(processed_df, input_file)
+        logging.info(f"Processing complete. File saved at: {output_file}")
 
-    # Determine the output file name
-    base_output_file = os.path.splitext(input_file)[0] + "-comparison"
-    output_file = f"{base_output_file}.xlsx"
-    output_counter = 1
-
-    # Check if the output file already exists, if yes, iterate the counter
-    while os.path.exists(output_file):
-        output_counter += 1
-        output_file = f"{base_output_file}{output_counter}.xlsx"
-
-    print("Input file:", input_file)
-    print("Comparison file:", comparison_file)
-    print("Output file:", output_file)
-
-    # Call the function to add columns
-    df = add_columns(input_file, output_file)
-
-    # Call the function to compare and fill data from the comparison file
-    result_df, selected_sheet = compare_and_fill(df, comparison_file, output_file)
-
-    # Read the comparison file into a DataFrame
-    with pd.ExcelFile(comparison_file) as xls:
-        comparison_df = pd.read_excel(xls, sheet_name=selected_sheet)
-
-    # Call the function to fill RF Funder IDs based on the comparison data
-    filled_df = fill_rf_funder_id(result_df, comparison_df, selected_sheet, output_file)
-
-    # Call the function to clean up the data by removing rows with missing "Name" values
-    cleaned_df = clean_up_data(filled_df, output_file)
-
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        raise
+    
 if __name__ == "__main__":
     main()
